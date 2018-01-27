@@ -1,18 +1,20 @@
 import psycopg2
 import urllib
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image as PILImage
+from PIL import ImageDraw, ImageFont
 from resizeimage import resizeimage
-from reportlab.pdfgen import canvas
-from reportlab.platypus import Table, TableStyle, SimpleDocTemplate
+from reportlab.platypus import Table, TableStyle, SimpleDocTemplate, Paragraph, Spacer, Image
 from reportlab.lib.units import inch
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 
 
 def cvs_to_db(csv_path):
+
+    # connecting to postgres and creating database
     conn = psycopg2.connect("host=localhost dbname=postgres user=postgres")
     cur = conn.cursor()
-    cur.execute("""DELETE FROM users;""")
+    # cur.execute("""DELETE FROM users;""")
     cur.execute("""
     CREATE TABLE IF NOT EXISTS  users(
         name text,
@@ -24,6 +26,7 @@ def cvs_to_db(csv_path):
     )
     """)
 
+    # moving data from csv file to database
     with open(csv_path, 'r') as csv_file:
         cur.copy_from(csv_file, 'users', sep=',')
         cur.execute("""
@@ -31,41 +34,59 @@ def cvs_to_db(csv_path):
             """)
 
     rows = cur.fetchall()
+
+    doc = SimpleDocTemplate("list_of_people.pdf", pagesize=A4, rightMargin=30, leftMargin=20, topMargin=30,
+                            bottomMargin=18)
+    pdf_elements = []
+
+    data_rows = [('NAME', 'SURNAME', 'COMPANY', 'TITLE', 'DOB', 'PHOTO'), ]
     for row in rows:
         img = urllib.urlretrieve(row[5], "pic of {} {}.jpg".format(row[0], row[1]))
         watermark = str(row[0])
-        print (row[2] + "-" + row[3])
         edit_image("pic of {} {}.jpg".format(row[0], row[1]), watermark)
+        I = Image("pic of {} {}.jpg".format(row[0], row[1]))
+        data_rows.append((row[0], row[1], row[2], row[3], row[4], I),)
 
-    doc = SimpleDocTemplate("list_of_people.pdf", pagesize=A4, rightMargin=72, leftMargin=72, topMargin=72, bottomMargin=18)
-    Story = []
+    main_table_from_db = Table(data_rows, 5 * [1 * inch], len(data_rows) * [0.5 * inch], repeatRows=1)
+    main_table_from_db.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('FONT', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('INNERGRID', (0, 0), (-1, -1), 0.25, colors.black),
+        ('BOX', (0, 0), (-1, -1), 0.25, colors.black),
+    ]))
 
-    rows = [('NAME', 'SURNAME', 'COMPANY', 'TITLE', 'DOB', 'PHOTO'), ] + rows
+    cur.execute("""SELECT company, COUNT(company) FROM users GROUP BY company""")
+    table_of_people = cur.fetchall()
+    table_of_people = [('COMPANY', 'NUMBER OF EMPLOYEES'), ] + table_of_people
 
-    t = Table(rows, 5 * [1 * inch], len(rows) * [0.4 * inch])
-    t.setStyle(TableStyle([
+    table_for_employees_amount = Table(table_of_people, 5 * [1 * inch], len(table_of_people) * [0.4 * inch])
+    table_for_employees_amount.setStyle(TableStyle([
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('FONT', (0, 0), (-1, 0), 'Helvetica-Bold'),
         ('INNERGRID', (0, 0), (-1, -1), 0.25, colors.black),
         ('BOX', (0, 0), (-1, -1), 0.25, colors.black),
     ]))
-    Story.append(t)
-    doc.build(Story)
+
+    pdf_elements.append(main_table_from_db)
+    pdf_elements.append(table_for_employees_amount)
+    doc.build(pdf_elements)
 
     conn.commit()
 
 
 def edit_image(user_foto, watermark):
     fd_img = open(user_foto, 'r')
-    img = Image.open(fd_img)
-    img = resizeimage.resize_thumbnail(img, [300, 300])
+    img = PILImage.open(fd_img)
+    img = resizeimage.resize_thumbnail(img, [50, 50])
     drawing = ImageDraw.Draw(img)
     black = (3, 8, 12)
-    font = ImageFont.truetype("Pillow/Tests/fonts/FreeMono.ttf", 15)
-    drawing.text((2, 6), watermark, fill=black, font=font)
+    font = ImageFont.truetype("Pillow/Tests/fonts/FreeMono.ttf", 12)
+    drawing.text((2, 2), watermark, fill=black, font=font)
     img.save(user_foto, img.format)
     fd_img.close()
+    return user_foto
 
 
 if __name__ == '__main__':

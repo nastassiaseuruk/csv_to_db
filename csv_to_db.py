@@ -12,8 +12,6 @@ from reportlab.lib.styles import getSampleStyleSheet
 
 
 def csv_to_db(csv_path):
-
-    # connecting to postgres and creating database
     conn = psycopg2.connect("host=localhost dbname=postgres user=postgres")
     cur = conn.cursor()
     cur.execute("""DELETE FROM users;""")
@@ -28,7 +26,6 @@ def csv_to_db(csv_path):
     )
     """)
 
-    # moving data from csv file to database
     with open(csv_path, 'r') as csv_file:
         cur.copy_from(csv_file, 'users', sep=',')
         cur.execute("""
@@ -63,9 +60,13 @@ def csv_to_db(csv_path):
 
     cur.execute("""SELECT company, COUNT(company) FROM users GROUP BY company""")
     table_of_people = cur.fetchall()
-    table_of_people = [('COMPANY', Paragraph('NUMBER OF EMPLOYEES', s)), ] + table_of_people
+    people_in_company = []
+    for row in table_of_people:
+        people_in_company.append((Paragraph(row[0], s), row[1]),)
 
-    table_for_employees_amount = Table(table_of_people, 5 * [1 * inch], len(table_of_people) * [0.4 * inch])
+    people_in_company = [('COMPANY', Paragraph('NUMBER OF EMPLOYEES', s)), ] + people_in_company
+
+    table_for_employees_amount = Table(people_in_company, 5 * [1 * inch], len(people_in_company) * [0.4 * inch])
     table_for_employees_amount.setStyle(TableStyle([
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),

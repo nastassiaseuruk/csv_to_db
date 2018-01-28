@@ -11,3 +11,7 @@ venv.bak/
 __pycache__/
 *.py[cod]
 *$py.class
+
+# file: ~/.gitignore_global
+.DS_Store
+.idea

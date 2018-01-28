@@ -1,15 +1,16 @@
+#!/usr/bin/env python
 import psycopg2
 import urllib
 from PIL import Image as PILImage
 from PIL import ImageDraw, ImageFont
 from resizeimage import resizeimage
-from reportlab.platypus import Table, TableStyle, SimpleDocTemplate, Paragraph, Spacer, Image
+from reportlab.platypus import Table, TableStyle, SimpleDocTemplate, Image
 from reportlab.lib.units import inch
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 
 
-def cvs_to_db(csv_path):
+def csv_to_db(csv_path):
 
     # connecting to postgres and creating database
     conn = psycopg2.connect("host=localhost dbname=postgres user=postgres")
@@ -47,7 +48,7 @@ def cvs_to_db(csv_path):
         I = Image("pic of {} {}.jpg".format(row[0], row[1]))
         data_rows.append((row[0], row[1], row[2], row[3], row[4], I),)
 
-    main_table_from_db = Table(data_rows, 5 * [1 * inch], len(data_rows) * [0.5 * inch], repeatRows=1)
+    main_table_from_db = Table(data_rows, 5 * [1 * inch], len(data_rows) * [0.5 * inch], repeatRows=1, splitByRow=True)
     main_table_from_db.setStyle(TableStyle([
         ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
@@ -91,7 +92,7 @@ def edit_image(user_foto, watermark):
 
 if __name__ == '__main__':
     csv_file = raw_input("Please enter a path to csv file: ")
-    cvs_to_db(csv_file)
+    csv_to_db(csv_file)
 
 
 
